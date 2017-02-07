@@ -4,29 +4,33 @@
 #include <conio.h>
 #include <vector>
 #include <conio.h>
-#include <list>
 
 using namespace std;
 
 void inputText(wstring*);
 int inputLength(int);
 void inputKey(vector<int>*, int);
-void decrypt(wstring*, int, vector<int>*);
+void crypt(wstring*, wstring*, vector<int>*);
+void outputResult(wstring*, wstring*, vector<int>*);
 void wait();
 
 void main() {
 	setlocale(LC_ALL, "Russian");
+	wcin.imbue(locale("rus_rus.866"));
 	wstring* text = new wstring();
+	wstring* newText = new wstring();
 	int keyLength;
 	vector<int>* key = new vector<int>();
 
 	inputText(text);
 	keyLength = inputLength(text->size());
 	inputKey(key, keyLength);
-	decrypt(text, keyLength, key);
+	crypt(text, newText, key);
+	outputResult(text, newText, key);
 
-	wcout << endl << L"Дешифрованный текст: " << text->data();
-	wait();
+	delete text;
+	delete newText;
+	delete key;
 }
 
 void inputText(wstring* text) {
@@ -102,6 +106,7 @@ int inputLength(int textLength) {
 }
 
 void inputKey(vector<int>* key, int keyLength) {
+	//Функция чтения ключа
 	string temp;
 	int element;
 
@@ -114,7 +119,7 @@ void inputKey(vector<int>* key, int keyLength) {
 
 		if (!key->empty()) {
 			for (unsigned int i = 0; i < key->size(); i++) {
-				cout << key->at(i) << " ";
+				cout << (key->at(i)+1) << " ";
 			}
 			cout << endl << endl;
 		}
@@ -136,11 +141,11 @@ void inputKey(vector<int>* key, int keyLength) {
 			}
 			else {
 				for (unsigned int j = 0; j < key->size(); j++) { //Проверка уникальности нового элемента
-					if (element == key->at(j)) {
+					if ( element == (key->at(j)+1) ) {
 						throw (-2);
 					}
 				}
-				key->push_back(element);
+				key->push_back(element-1);
 			}
 		}
 		catch (invalid_argument e) {
@@ -171,8 +176,38 @@ void inputKey(vector<int>* key, int keyLength) {
 	wait();
 }
 
-void decrypt(wstring* text, int length, vector<int>* key) {
+void crypt(wstring* text, wstring* newText, vector<int>* key) {
+	//Функция шифрования текста полученным ключом
+	//Дополнение текста пробелами по заданию
+	int cycleCount = text->size() / key->size();
+	int spaceCount = (key->size() * (cycleCount+1)) - text->size();
+
+	if (spaceCount != 0) {
+		cycleCount++;
+		for (int i = 0; i < spaceCount; i++) {
+			text->append(L" ");
+		}
+	}
 	
+	//Шифрование текста по ключу
+	for ( int i = 0; i < cycleCount; i++ ) {
+		for (unsigned int j = 0; j < key->size(); j++) {
+			newText->push_back(text->at(key->at(j) + ((key->size()) * i)));
+		}
+	}
+}
+
+void outputResult(wstring* text, wstring* newText, vector<int>* key) {
+	system("cls");
+	wcout << L"/*----  Лабораторная работа №1  ----*/" << endl << endl;
+	wcout << endl << L"Ключ: ";
+	for (unsigned int i = 0; i < key->size(); i++) {
+		cout << (key->at(i)+1) << " ";
+	}
+	cout << endl;
+	wcout << endl << L"Исходный текст: " << text->data() << endl;
+	wcout << endl << L"Дешифрованный текст: " << newText->data() << endl;
+	wait();
 }
 
 void wait() {
