@@ -4,49 +4,81 @@
 #include <conio.h>
 #include <vector>
 #include <conio.h>
+#include <fstream>
 
 using namespace std;
 
-void inputText(wstring*);
+void inputSourceFileName(wstring*);
+bool readSource(wstring*, wstring*);
 int inputLength(int);
 void inputKey(vector<int>*, int);
+void getReverseKey(vector<int>*, vector<int>*);
 void crypt(wstring*, wstring*, vector<int>*);
-void outputResult(wstring*, wstring*, vector<int>*);
+void outputResult(wstring*, wstring*, wstring*, vector<int>*);
+void saveResult(int, wstring*);
+void correctText(wstring*, vector<int>*);
 void wait();
 
 void main() {
-	setlocale(LC_ALL, "Russian");
-	wcin.imbue(locale("rus_rus.866"));
+	locale::global(locale("Russian"));
+	//wcin.imbue(locale("rus_rus.866"));
+	//wcin.imbue(locale("Russian"));
+	wstring* sourceFileName = new wstring();
 	wstring* text = new wstring();
-	wstring* newText = new wstring();
-	int keyLength;
-	vector<int>* key = new vector<int>();
+	wstring* encryptedText = new wstring();
+	wstring* decryptedText = new wstring();
+	int keyLength; //Длина ключа
+	int correction; //Величина для коррекции текста после дешифрования (удаление лишних пробелов)
+	vector<int>* key = new vector<int>(); //Ключ для шифрования
+	vector<int>* reverseKey = new vector<int>(); //Ключ для дешифрования
 
-	inputText(text);
-	keyLength = inputLength(text->size());
-	inputKey(key, keyLength);
-	crypt(text, newText, key);
-	outputResult(text, newText, key);
+	while (true) {
+		text->clear();
+		inputSourceFileName(sourceFileName);
+		if(!readSource(sourceFileName, text)){
+			continue;
+		}
+		
+		if (text->size() > 1) {
+			break;
+		}
+		else {
+			wcout << endl << L"Логическая ошибка: длина текста в файле должна быть больше одного символа.";
+			wait();
+		}
+	}
+	keyLength = inputLength(text->size()); //Получение длины для ключа
+	inputKey(key, keyLength); //Чтение ключа шифрования
+	getReverseKey(key, reverseKey); //Получение ключа дешифрования
+	correction = text->size(); //Сохранение первоначальной длины исходного текста для последующей коррекции
+	correctText(text, key); //Коррекция исходного текста
+	crypt(text, encryptedText, key); //Шифрование
+	crypt(encryptedText, decryptedText, reverseKey); //Дешифрование
+	outputResult(text, encryptedText, decryptedText, key);
+	saveResult(correction, decryptedText);
 
 	delete text;
-	delete newText;
+	delete encryptedText;
+	delete decryptedText;
 	delete key;
+	delete reverseKey;
+	delete sourceFileName;
 }
 
-void inputText(wstring* text) {
+void inputSourceFileName(wstring* text) {
 	//Функция считывает текст, предназначенные для шифрования
 	wstring temp;
 
 	while (true) {
 		system("cls");
 		wcout << L"/*----  Лабораторная работа №1  ----*/" << endl << endl;
-		wcout << L"Введите текст для шифрования: ";
+		wcout << L"Введите названия файла для шифрования: ";
 		getline(wcin, temp);
 		if (temp.size() > 1) {
 			break;
 		}
 		else {
-			wcout << endl << L"Недопустимая длина текста. Попробуйте ещё раз." << endl;
+			wcout << endl << L"Недопустимая длина названия файла. Попробуйте ещё раз." << endl;
 			wait();
 		}
 	}
@@ -54,6 +86,26 @@ void inputText(wstring* text) {
 	text->assign(temp);
 	wcout << endl << L"Данные удовлетворяют условиям. Ввод данных прошёл успешно.";
 	wait();
+}
+
+bool readSource(wstring* sourceFileName, wstring* text) {
+	//Функция читает исходный текст из файла
+	wifstream file(sourceFileName->data());
+	wchar_t* byte = new wchar_t();
+
+	if (file.fail()) {
+		wcout << endl << L"Ошибка при открытии файла";
+		wait();
+		text->clear();
+		return false;
+	}
+	while ( file.read( byte, 1 ) ) { //Посимвольное чтение файла
+		text->push_back(*byte);
+	}
+	file.close();
+	
+	delete byte;
+	return true;
 }
 
 int inputLength(int textLength) {
@@ -176,18 +228,22 @@ void inputKey(vector<int>* key, int keyLength) {
 	wait();
 }
 
+void getReverseKey(vector<int>* key, vector<int>* reverseKey) {
+	//Вынимает код для дешифрации из исходного ключа
+	for ( unsigned int i = 0; i < key->size(); i++ ) {
+		for ( unsigned int j = 0; j < key->size(); j++ ) {
+			if (i == key->at(j)) {
+				reverseKey->push_back(j);
+				break;
+			}
+		}
+	}
+}
+
 void crypt(wstring* text, wstring* newText, vector<int>* key) {
 	//Функция шифрования текста полученным ключом
 	//Дополнение текста пробелами по заданию
 	int cycleCount = text->size() / key->size();
-	int spaceCount = (key->size() * (cycleCount+1)) - text->size();
-
-	if (spaceCount != 0) {
-		cycleCount++;
-		for (int i = 0; i < spaceCount; i++) {
-			text->append(L" ");
-		}
-	}
 	
 	//Шифрование текста по ключу
 	for ( int i = 0; i < cycleCount; i++ ) {
@@ -195,9 +251,11 @@ void crypt(wstring* text, wstring* newText, vector<int>* key) {
 			newText->push_back(text->at(key->at(j) + ((key->size()) * i)));
 		}
 	}
+
+	return;
 }
 
-void outputResult(wstring* text, wstring* newText, vector<int>* key) {
+void outputResult(wstring* text, wstring* encryptedText, wstring* decryptedText,vector<int>* key) {
 	system("cls");
 	wcout << L"/*----  Лабораторная работа №1  ----*/" << endl << endl;
 	wcout << endl << L"Ключ: ";
@@ -206,8 +264,35 @@ void outputResult(wstring* text, wstring* newText, vector<int>* key) {
 	}
 	cout << endl;
 	wcout << endl << L"Исходный текст: " << text->data() << endl;
-	wcout << endl << L"Дешифрованный текст: " << newText->data() << endl;
+	wcout << endl << L"Зашифрованный текст: " << encryptedText->data() << endl;
+	wcout << endl << L"Дешифрованный текст: " << decryptedText->data() << endl;
 	wait();
+}
+
+void saveResult(int sourceTextLength, wstring* decryptedText) {
+	//Сохранение результата дешифрации в отдельном файле
+	wofstream file("target.txt");
+	int count = (decryptedText->size() - sourceTextLength);
+
+	for(int i = 0; i < count; i++){ //Убираем коррекцию из пробелов, добавленную при шифрации
+		decryptedText->pop_back();
+	}
+
+	file.write(decryptedText->data(), decryptedText->size());
+	file.close();
+}
+
+void correctText(wstring* text, vector<int>* key) {
+	//Текст дополняется пробелами, чтобы количество его символов стало кратным длине ключа
+	int cycleCount = text->size() / key->size();
+	int spaceCount = (key->size() * (cycleCount + 1)) - text->size();
+
+	if (spaceCount != 0) {
+		cycleCount++;
+		for (int i = 0; i < spaceCount; i++) {
+			text->append(L" ");
+		}
+	}
 }
 
 void wait() {
